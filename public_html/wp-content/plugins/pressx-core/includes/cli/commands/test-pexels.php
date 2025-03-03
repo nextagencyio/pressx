@@ -48,6 +48,18 @@ function pressx_test_pexels($query = '', $count = 4) {
 
       if ($image_url) {
         WP_CLI::success("Found image URL: $image_url");
+
+        // Test image import.
+        WP_CLI::log("Testing image import...");
+        $image_id = pressx_import_pexels_image($image_url, $test_query);
+
+        if ($image_id && !is_wp_error($image_id)) {
+          WP_CLI::success("Successfully imported image with ID: $image_id");
+          WP_CLI::log("Image URL in media library: " . wp_get_attachment_url($image_id));
+        }
+        else {
+          WP_CLI::warning("Failed to import image");
+        }
       }
       else {
         WP_CLI::warning("No image found for query: $test_query");
@@ -71,9 +83,21 @@ function pressx_test_pexels($query = '', $count = 4) {
     if (!empty($gallery_images)) {
       WP_CLI::success("Found " . count($gallery_images) . " images for gallery");
 
-      // Display each image URL.
+      // Display each image URL and test import.
       foreach ($gallery_images as $index => $image_url) {
         WP_CLI::log("Image " . ($index + 1) . ": $image_url");
+
+        // Test image import.
+        WP_CLI::log("Testing gallery image import...");
+        $image_id = pressx_import_pexels_image($image_url, "Gallery image " . ($index + 1));
+
+        if ($image_id && !is_wp_error($image_id)) {
+          WP_CLI::success("Successfully imported gallery image with ID: $image_id");
+          WP_CLI::log("Image URL in media library: " . wp_get_attachment_url($image_id));
+        }
+        else {
+          WP_CLI::warning("Failed to import gallery image");
+        }
       }
     }
     else {
@@ -90,6 +114,18 @@ function pressx_test_pexels($query = '', $count = 4) {
 
     if ($image_url) {
       WP_CLI::success("Found image URL: $image_url");
+
+      // Test image import.
+      WP_CLI::log("Testing image import...");
+      $image_id = pressx_import_pexels_image($image_url, $query);
+
+      if ($image_id && !is_wp_error($image_id)) {
+        WP_CLI::success("Successfully imported image with ID: $image_id");
+        WP_CLI::log("Image URL in media library: " . wp_get_attachment_url($image_id));
+      }
+      else {
+        WP_CLI::warning("Failed to import image");
+      }
     }
     else {
       WP_CLI::warning("No image found for query: $query");
@@ -106,9 +142,21 @@ function pressx_test_pexels($query = '', $count = 4) {
     if (!empty($gallery_images)) {
       WP_CLI::success("Found " . count($gallery_images) . " images for gallery");
 
-      // Display each image URL.
+      // Display each image URL and test import.
       foreach ($gallery_images as $index => $image_url) {
         WP_CLI::log("Image " . ($index + 1) . ": $image_url");
+
+        // Test image import.
+        WP_CLI::log("Testing gallery image import...");
+        $image_id = pressx_import_pexels_image($image_url, "Gallery image " . ($index + 1));
+
+        if ($image_id && !is_wp_error($image_id)) {
+          WP_CLI::success("Successfully imported gallery image with ID: $image_id");
+          WP_CLI::log("Image URL in media library: " . wp_get_attachment_url($image_id));
+        }
+        else {
+          WP_CLI::warning("Failed to import gallery image");
+        }
       }
     }
     else {

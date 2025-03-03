@@ -21,8 +21,15 @@ function pressx_get_pexels_image($query) {
   // Get the API key from WordPress options or constants.
   $api_key = defined('PEXELS_API_KEY') ? PEXELS_API_KEY : get_option('pressx_pexels_api_key');
 
+  error_log("PressX Pexels: Searching for image with query: " . $query);
+  error_log("PressX Pexels: API key available: " . (!empty($api_key) ? 'Yes' : 'No'));
+
   if (empty($api_key)) {
-    WP_CLI::warning("Pexels API key not found. Please set PEXELS_API_KEY constant or pressx_pexels_api_key option.");
+    if (class_exists('WP_CLI') && defined('WP_CLI') && WP_CLI) {
+      WP_CLI::warning("Pexels API key not found. Please set PEXELS_API_KEY constant or pressx_pexels_api_key option.");
+    } else {
+      error_log("Pexels API key not found. Please set PEXELS_API_KEY constant or pressx_pexels_api_key option.");
+    }
     return NULL;
   }
 
@@ -34,12 +41,18 @@ function pressx_get_pexels_image($query) {
     ],
   ];
 
+  error_log("PressX Pexels: Making API request to: " . $url);
+
   // Make the API request.
   $response = wp_remote_get($url, $args);
 
   // Check for errors.
   if (is_wp_error($response)) {
-    WP_CLI::warning("Error fetching image from Pexels: " . $response->get_error_message());
+    if (class_exists('WP_CLI') && defined('WP_CLI') && WP_CLI) {
+      WP_CLI::warning("Error fetching image from Pexels: " . $response->get_error_message());
+    } else {
+      error_log("PressX Pexels: Error fetching image from Pexels: " . $response->get_error_message());
+    }
     return NULL;
   }
 
@@ -47,23 +60,32 @@ function pressx_get_pexels_image($query) {
   $body = wp_remote_retrieve_body($response);
   $data = json_decode($body, TRUE);
 
+  error_log("PressX Pexels: API response received. Status code: " . wp_remote_retrieve_response_code($response));
+
   // Check if we got any photos.
   if (empty($data['photos'])) {
-    WP_CLI::warning("No images found for query: $query");
+    if (class_exists('WP_CLI') && defined('WP_CLI') && WP_CLI) {
+      WP_CLI::warning("No images found on Pexels for query: $query");
+    } else {
+      error_log("PressX Pexels: No images found on Pexels for query: $query");
+    }
     return NULL;
   }
+
+  error_log("PressX Pexels: Found " . count($data['photos']) . " images for query: " . $query);
 
   // Sort photos by size to get the highest quality ones.
   usort($data['photos'], function($a, $b) {
     return ($b['width'] * $b['height']) - ($a['width'] * $a['height']);
   });
 
-  // Get a random image from the top results for variety.
-  $top_photos = array_slice($data['photos'], 0, min(5, count($data['photos'])));
-  $selected_photo = $top_photos[array_rand($top_photos)];
+  // Get the first (largest) photo.
+  $photo = $data['photos'][0];
+  $image_url = $photo['src']['original'];
 
-  // Return the original high-resolution image.
-  return $selected_photo['src']['original'];
+  error_log("PressX Pexels: Selected image URL: " . $image_url);
+
+  return $image_url;
 }
 
 /**
@@ -136,67 +158,108 @@ function pressx_get_pexels_gallery_images($query, $count = 4) {
  *   The attachment ID or WP_Error on failure.
  */
 function pressx_import_pexels_image($image_url = '', $alt_text = '', $caption = '') {
-  // Include the file that contains the download_url function.
+  error_log("PressX Pexels: Starting image import process");
+  error_log("PressX Pexels: Image URL: " . $image_url);
+  error_log("PressX Pexels: Alt text: " . $alt_text);
+
+  // Include required files.
   require_once ABSPATH . 'wp-admin/includes/file.php';
   require_once ABSPATH . 'wp-admin/includes/media.php';
   require_once ABSPATH . 'wp-admin/includes/image.php';
 
-  // If no image URL is provided, search for one.
+  // If no image URL is provided, return NULL.
   if (empty($image_url)) {
+    error_log("PressX Pexels: No image URL provided for import");
     return NULL;
   }
 
-  // Generate a unique filename.
-  $filename = basename($image_url);
+  // Get the upload directory info.
+  $upload_dir = wp_upload_dir();
+  if (!empty($upload_dir['error'])) {
+    error_log("PressX Pexels: Upload directory error: " . $upload_dir['error']);
+    return NULL;
+  }
 
-  // Clean up the filename by removing URL parameters.
-  $filename = preg_replace('/\?.*$/', '', $filename);
+  // Clean up the filename by removing query parameters.
+  $filename = basename(strtok($image_url, '?'));
 
   // If the URL doesn't have a file extension, try to determine it.
   if (!pathinfo($filename, PATHINFO_EXTENSION)) {
-    $filename .= '.jpg';  // Default to jpg for Pexels images.
+    // Default to jpg for Pexels images.
+    $filename .= '.jpg';
   }
 
-  if (empty($alt_text)) {
-    $alt_text = 'Pexels Image - ' . sanitize_title($filename);
-  }
+  // Generate a unique filename.
+  $filename = wp_unique_filename($upload_dir['path'], $filename);
+  $filepath = $upload_dir['path'] . '/' . $filename;
 
-  if (empty($caption)) {
-    $caption = 'Pexels Image - ' . sanitize_title($filename);
-  }
+  error_log("PressX Pexels: Downloading image to: " . $filepath);
 
-  // Download the image.
-  $tmp_file = download_url($image_url);
-  if (is_wp_error($tmp_file)) {
-    WP_CLI::warning("Error downloading image: " . $tmp_file->get_error_message());
+  // Download the image using wp_remote_get.
+  $response = wp_remote_get($image_url);
+  if (is_wp_error($response)) {
+    error_log("PressX Pexels: Error downloading image: " . $response->get_error_message());
     return NULL;
   }
 
-  // Prepare the file array.
-  $file_array = [
-    'name' => $filename,
-    'tmp_name' => $tmp_file,
+  $image_data = wp_remote_retrieve_body($response);
+  if (empty($image_data)) {
+    error_log("PressX Pexels: Empty image data received");
+    return NULL;
+  }
+
+  // Save the image file.
+  if (!file_put_contents($filepath, $image_data)) {
+    error_log("PressX Pexels: Error saving image to: " . $filepath);
+    return NULL;
+  }
+
+  error_log("PressX Pexels: Image saved successfully to: " . $filepath);
+
+  // Set up the image title.
+  $title = !empty($alt_text) ? $alt_text : pathinfo($filename, PATHINFO_FILENAME);
+  $caption = !empty($caption) ? $caption : $title;
+
+  // Insert the image into the media library.
+  $attachment = [
+    'post_mime_type' => wp_check_filetype($filepath)['type'],
+    'post_title' => $title,
+    'post_content' => '',
+    'post_excerpt' => $caption,
+    'post_status' => 'inherit',
   ];
 
-  // Check the file type.
-  $wp_filetype = wp_check_filetype($filename, NULL);
-  if (empty($wp_filetype['type'])) {
-    @unlink($tmp_file);
-    WP_CLI::warning("Invalid file type for image: $filename");
-    return NULL;
-  }
+  error_log("PressX Pexels: Importing image to media library");
 
-  // Import the image into the media library.
-  $attachment_id = media_handle_sideload($file_array, 0, $caption);
-
-  // Clean up the temporary file.
-  @unlink($tmp_file);
-
-  // Check for errors.
+  // Insert the attachment.
+  $attachment_id = wp_insert_attachment($attachment, $filepath);
   if (is_wp_error($attachment_id)) {
-    WP_CLI::warning("Error importing image: " . $attachment_id->get_error_message());
+    error_log("PressX Pexels: Error creating attachment: " . $attachment_id->get_error_message());
+    @unlink($filepath);
     return NULL;
   }
+
+  error_log("PressX Pexels: Attachment created with ID: " . $attachment_id);
+
+  // Generate metadata for the attachment.
+  $attachment_data = wp_generate_attachment_metadata($attachment_id, $filepath);
+  if (is_wp_error($attachment_data)) {
+    error_log("PressX Pexels: Error generating attachment metadata: " . $attachment_data->get_error_message());
+    wp_delete_attachment($attachment_id, TRUE);
+    @unlink($filepath);
+    return NULL;
+  }
+
+  // Update the metadata.
+  wp_update_attachment_metadata($attachment_id, $attachment_data);
+
+  // Add alt text.
+  if (!empty($alt_text)) {
+    update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+  }
+
+  error_log("PressX Pexels: Successfully imported image with ID: " . $attachment_id);
+  error_log("PressX Pexels: Image URL in media library: " . wp_get_attachment_url($attachment_id));
 
   return $attachment_id;
 }

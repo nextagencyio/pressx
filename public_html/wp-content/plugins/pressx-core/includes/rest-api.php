@@ -249,14 +249,72 @@ function pressx_chat_callback(WP_REST_Request $request) {
           case 'hero':
             $new_section = [
               '_type' => 'hero',
-              'hero_layout' => 'image_top',
-              'heading' => "**" . ucfirst($command_prompt) . "**",
+              'eyebrow' => 'Feature',
+              'hero_layout' => 'full_width',
+              'heading' => ucfirst($command_prompt),
               'summary' => $command_prompt,
-              // Will be populated with default image.
-              'media' => '',
               'link_title' => 'Learn More',
               'link_url' => '#',
             ];
+
+            // Only add default image if no media is set.
+            if (!isset($new_section['media'])) {
+              // Include the image handler.
+              require_once plugin_dir_path(dirname(__FILE__)) . 'includes/image-handler.php';
+
+              // Get a default image.
+              $image_path = plugin_dir_path(dirname(__FILE__)) . 'images/card.png';
+              $image_id = pressx_ensure_image($image_path);
+              $image_url = $image_id ? wp_get_attachment_url($image_id) : '';
+
+              $new_section['media'] = $image_url;
+            }
+            break;
+
+          case 'side_by_side':
+            $new_section = [
+              '_type' => 'side_by_side',
+              'eyebrow' => 'Feature',
+              'layout' => 'image_right',
+              'title' => ucfirst($command_prompt),
+              'summary' => $command_prompt,
+              'link_title' => 'Learn More',
+              'link_url' => '#',
+            ];
+
+            // Only add default image if no media is set.
+            if (!isset($new_section['media'])) {
+              // Include the image handler.
+              require_once plugin_dir_path(dirname(__FILE__)) . 'includes/image-handler.php';
+
+              // Get a default image.
+              $image_path = plugin_dir_path(dirname(__FILE__)) . 'images/card.png';
+              $image_id = pressx_ensure_image($image_path);
+              $image_url = $image_id ? wp_get_attachment_url($image_id) : '';
+
+              $new_section['media'] = $image_url;
+            }
+            break;
+
+          case 'quote':
+            $new_section = [
+              '_type' => 'quote',
+              'quote' => $command_prompt,
+              'author' => 'Anonymous',
+            ];
+
+            // Only add default image if no media is set.
+            if (!isset($new_section['media'])) {
+              // Include the image handler.
+              require_once plugin_dir_path(dirname(__FILE__)) . 'includes/image-handler.php';
+
+              // Get a default image.
+              $image_path = plugin_dir_path(dirname(__FILE__)) . 'images/card.png';
+              $image_id = pressx_ensure_image($image_path);
+              $image_url = $image_id ? wp_get_attachment_url($image_id) : '';
+
+              $new_section['media'] = $image_url;
+            }
             break;
 
           case 'text':
@@ -275,36 +333,6 @@ function pressx_chat_callback(WP_REST_Request $request) {
             ];
             break;
 
-          case 'quote':
-            $new_section = [
-              '_type' => 'quote',
-              'quote' => $command_prompt,
-              'author' => 'Customer',
-              'job_title' => 'Satisfied Client',
-              // Will be populated with default image.
-              'media' => '',
-            ];
-            break;
-
-          case 'side_by_side':
-            $new_section = [
-              '_type' => 'side_by_side',
-              'eyebrow' => 'Feature',
-              'layout' => 'image_right',
-              'title' => ucfirst($command_prompt),
-              'summary' => $command_prompt,
-              'link_title' => 'Learn More',
-              'link_url' => '#',
-              // Will be populated with default image.
-              'media' => '',
-              'features' => [
-                ['text' => 'Feature 1'],
-                ['text' => 'Feature 2'],
-                ['text' => 'Feature 3'],
-              ],
-            ];
-            break;
-
           default:
             return new WP_REST_Response([
               'response' => "I don't know how to add a section of type '$section_type'. Please try a different section type.",
@@ -312,19 +340,6 @@ function pressx_chat_callback(WP_REST_Request $request) {
               'command_failed' => TRUE,
             ], 200);
         }
-      }
-
-      // Add default image if needed.
-      if (in_array($section_type, ['hero', 'side_by_side', 'quote'])) {
-        // Include the image handler.
-        require_once plugin_dir_path(dirname(__FILE__)) . 'includes/image-handler.php';
-
-        // Get a default image.
-        $image_path = plugin_dir_path(dirname(__FILE__)) . 'images/card.png';
-        $image_id = pressx_ensure_image($image_path);
-        $image_url = $image_id ? wp_get_attachment_url($image_id) : '';
-
-        $new_section['media'] = $image_url;
       }
 
       // Add the new section to the existing sections.
