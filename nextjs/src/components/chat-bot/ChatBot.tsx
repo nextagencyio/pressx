@@ -117,32 +117,57 @@ export default function ChatBot() {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const welcomeMessage: Message = {
-        content: "👋 Hi there! I'm the PressX ChatBot. I can help you with various tasks like creating landing pages and adding sections to them. Click on the links below or type your own command:",
+        content: "👋 Hi there! I'm the PressX ChatBot. I can help you create landing pages or add sections to existing ones.\n\nSections:",
         role: 'assistant',
         timestamp: Date.now(),
         id: generateUniqueId(),
         links: [
           {
-            text: '➕ Add Landing Page',
+            text: 'landing page',
             url: '#add-landing',
-            command: 'landing_page'
+            command: 'add landing',
           },
           {
-            text: '➕ Add Hero Section',
+            text: 'hero',
             url: '#add-hero',
-            command: 'add_section'
+            command: 'add hero section',
           },
           {
-            text: '➕ Add Text Section',
+            text: 'text',
             url: '#add-text',
-            command: 'add_section'
+            command: 'add text section',
           },
           {
-            text: '➕ Add Quote Section',
+            text: 'quote',
             url: '#add-quote',
-            command: 'add_section'
-          }
-        ]
+            command: 'add quote section',
+          },
+          {
+            text: 'side by side',
+            url: '#add-side-by-side',
+            command: 'add side by side section',
+          },
+          {
+            text: 'card group',
+            url: '#add-card-group',
+            command: 'add card group section',
+          },
+          {
+            text: 'gallery',
+            url: '#add-gallery',
+            command: 'add gallery section',
+          },
+          {
+            text: 'accordion',
+            url: '#add-accordion',
+            command: 'add accordion section',
+          },
+          {
+            text: 'newsletter',
+            url: '#add-newsletter',
+            command: 'add newsletter section',
+          },
+        ],
       };
 
       setMessages([welcomeMessage]);

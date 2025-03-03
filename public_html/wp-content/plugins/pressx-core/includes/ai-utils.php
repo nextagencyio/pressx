@@ -183,13 +183,17 @@ function pressx_ai_request($prompt, $system_prompt = NULL, $is_cli = FALSE, $is_
  *   The sanitized prompt.
  */
 function pressx_sanitize_prompt($prompt) {
-  // Remove any potentially harmful characters.
-  $sanitized = preg_replace('/[^a-zA-Z0-9\s\-_]/', '', $prompt);
+  // Remove any HTML tags.
+  $prompt = strip_tags($prompt);
 
-  // Trim and convert to lowercase.
-  $sanitized = strtolower(trim($sanitized));
+  // Convert to plain text.
+  $prompt = html_entity_decode($prompt, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-  return $sanitized;
+  // Trim whitespace.
+  $prompt = trim($prompt);
+
+  // Ensure we have a string.
+  return (string) $prompt;
 }
 
 /**

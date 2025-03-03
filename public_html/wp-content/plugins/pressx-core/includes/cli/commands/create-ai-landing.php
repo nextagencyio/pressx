@@ -162,7 +162,7 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
       return FALSE;
     }
 
-    // Generate title if not provided by the AI
+    // Generate title if not provided by the AI.
     $landing_title = isset($landing_data['title']) ? $landing_data['title'] : "AI Landing Page: " . ucfirst($prompt);
 
     // Process the sections to ensure they have the correct structure.
@@ -252,13 +252,13 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
         }
       }
 
-      // Ensure gallery sections always have exactly 4 items
+      // Ensure gallery sections always have exactly 4 items.
       if ($section['_type'] === 'gallery') {
         if (!isset($section['media_items']) || !is_array($section['media_items'])) {
           $section['media_items'] = [];
         }
 
-        // If fewer than 4 items, add more
+        // If fewer than 4 items, add more.
         while (count($section['media_items']) < 4) {
           $section['media_items'][] = [
             'title' => 'Gallery Item ' . (count($section['media_items']) + 1),
@@ -268,13 +268,13 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
           pressx_landing_log("Added missing gallery item to reach 4 items.");
         }
 
-        // If more than 4 items, trim the excess
+        // If more than 4 items, trim the excess.
         if (count($section['media_items']) > 4) {
           pressx_landing_log("Trimming gallery from " . count($section['media_items']) . " to 4 items.");
           $section['media_items'] = array_slice($section['media_items'], 0, 4);
         }
 
-        // Add media URLs to all gallery items if not already set
+        // Add media URLs to all gallery items if not already set.
         foreach ($section['media_items'] as &$item) {
           if (!isset($item['media'])) {
             $item['media'] = $default_image_url;
@@ -387,7 +387,7 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
           $section['media'] = $default_image_url;
         }
 
-        // Also set default images for gallery items if Pexels is disabled
+        // Also set default images for gallery items if Pexels is disabled.
         if ($section['_type'] === 'gallery' && isset($section['media_items']) && is_array($section['media_items'])) {
           foreach ($section['media_items'] as &$item) {
             $item['media'] = $default_image_url;
@@ -425,16 +425,16 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
         // Try to boot Carbon Fields if it's available but not initialized.
         if (function_exists('carbon_fields_boot_app')) {
           carbon_fields_boot_app();
-          // Give it a moment to initialize
+          // Give it a moment to initialize.
           sleep(1);
         } else {
-          // Try to include Carbon Fields directly
+          // Try to include Carbon Fields directly.
           $carbon_fields_path = ABSPATH . 'wp-content/plugins/carbon-fields/carbon-fields.php';
           if (file_exists($carbon_fields_path)) {
             include_once($carbon_fields_path);
             if (function_exists('carbon_fields_boot_app')) {
               carbon_fields_boot_app();
-              // Give it a moment to initialize
+              // Give it a moment to initialize.
               sleep(1);
             }
           }
@@ -470,19 +470,6 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
     pressx_landing_error("Error generating AI landing page: " . $e->getMessage());
     return FALSE;
   }
-}
-
-/**
- * Sanitizes a prompt.
- *
- * @param string $prompt
- *   The prompt to sanitize.
- *
- * @return string
- *   The sanitized prompt.
- */
-function pressx_sanitize_prompt($prompt) {
-  return pressx_sanitize_prompt($prompt);
 }
 
 /**
@@ -539,7 +526,7 @@ function validate_lucide_icon($icon) {
     return ['star'];
   }
 
-  // Normalize the input icon name
+  // Normalize the input icon name.
   $normalized_icon = strtolower(str_replace([' ', '_'], '-', $icon));
 
   // Exact matches first (case-insensitive, with normalization)
