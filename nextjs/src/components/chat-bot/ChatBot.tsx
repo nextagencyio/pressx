@@ -3,14 +3,18 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { User, Bot, Copy, Check } from 'lucide-react';
+import { User } from 'lucide-react';
+import { Bot } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { refreshJwtToken, ensureValidToken } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 type Message = {
   content: string;
   role: 'user' | 'assistant';
   timestamp: number;
-  links?: Array<{ text: string; url: string }>;
+  id?: string;
+  links?: Array<{ text: string; url: string; command?: string }>;
   isCommand?: boolean;
   commandExecuted?: string;
   commandFailed?: boolean;
@@ -18,7 +22,21 @@ type Message = {
   commandType?: string;
   commandPrompt?: string;
   needs_more_info?: boolean;
+  section_type?: string;
+  page_id?: number;
 };
+
+// Define the interface at the component level
+interface ConfirmationRequestBody {
+  messages: { role: string; content: string }[];
+  confirmed: string;
+  command_type?: string;
+  command_prompt?: string;
+  section_type?: string;
+  page_id?: number;
+  message: string;
+  needs_more_info?: boolean;
+}
 
 export default function ChatBot() {
   // Check for preview mode using the environment variable
@@ -41,6 +59,12 @@ export default function ChatBot() {
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  // Function to generate a unique ID
+  const generateUniqueId = () => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   // Function to test the connection to the API
   const testConnection = async () => {
@@ -76,7 +100,8 @@ export default function ChatBot() {
           {
             content: "Connection restored! You can now continue chatting.",
             role: 'assistant',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            id: generateUniqueId(),
           }
         ]);
       }
@@ -91,13 +116,36 @@ export default function ChatBot() {
   // Add welcome message when chat is opened
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      setMessages([
-        {
-          content: "👋 Hi! I'm the PressX Assistant. I am here to help you create content for your PressX website. You can ask me questions or try commands like 'create a landing page for [topic]'.",
-          role: 'assistant',
-          timestamp: Date.now()
-        }
-      ]);
+      const welcomeMessage: Message = {
+        content: "👋 Hi there! I'm the PressX ChatBot. I can help you with various tasks like creating landing pages and adding sections to them. Click on the links below or type your own command:",
+        role: 'assistant',
+        timestamp: Date.now(),
+        id: generateUniqueId(),
+        links: [
+          {
+            text: '➕ Add Landing Page',
+            url: '#add-landing',
+            command: 'landing_page'
+          },
+          {
+            text: '➕ Add Hero Section',
+            url: '#add-hero',
+            command: 'add_section'
+          },
+          {
+            text: '➕ Add Text Section',
+            url: '#add-text',
+            command: 'add_section'
+          },
+          {
+            text: '➕ Add Quote Section',
+            url: '#add-quote',
+            command: 'add_section'
+          }
+        ]
+      };
+
+      setMessages([welcomeMessage]);
     }
   }, [isOpen, messages.length]);
 
@@ -174,6 +222,7 @@ export default function ChatBot() {
             content: "Authentication token refreshed successfully. You can continue chatting now.",
             role: 'assistant',
             timestamp: Date.now(),
+            id: generateUniqueId(),
           }
         ]);
         return true;
@@ -188,6 +237,7 @@ export default function ChatBot() {
             content: "Failed to refresh authentication token. Please try logging in again.",
             role: 'assistant',
             timestamp: Date.now(),
+            id: generateUniqueId(),
           }
         ]);
         return false;
@@ -195,13 +245,14 @@ export default function ChatBot() {
     } catch (error) {
       console.error('Failed to refresh token:', error);
 
-      // Add error message for the user
+      // Handle authentication errors
       setMessages(prev => [
         ...prev,
         {
           content: `Error refreshing token: ${error instanceof Error ? error.message : 'Unknown error'}. Please try logging in again.`,
           role: 'assistant',
           timestamp: Date.now(),
+          id: generateUniqueId(),
         }
       ]);
       return false;
@@ -250,7 +301,8 @@ export default function ChatBot() {
         {
           content: "I've opened WordPress login in a new tab. After logging in, please come back to this page and click the 'Refresh Connection' button below.\n\n**Important:** After logging in to WordPress, you need to refresh this page to get a new authentication token.",
           role: 'assistant',
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          id: generateUniqueId(),
         }
       ]);
 
@@ -281,53 +333,119 @@ export default function ChatBot() {
     }
   };
 
+  // Function to handle section addition
+  const handleSectionAdded = (data: any) => {
+    if (data.section_added && data.section_data) {
+      console.log('Section added successfully:', data.section_data.type);
+
+      try {
+        // Get section data
+        const section = data.section_data;
+        const sectionType = section.type || 'generic';
+        const pageUrl = section.page_url || '';
+
+        // Create a message with refresh button
+        const refreshMessage: Message = {
+          content: `✅ New ${sectionType} section added successfully! Click the button below to refresh and see your changes.`,
+          role: 'assistant',
+          timestamp: Date.now(),
+          id: generateUniqueId(),
+          links: [
+            {
+              text: '🔄 Refresh Page',
+              url: pageUrl || window.location.href
+            }
+          ],
+          isCommand: true,
+          commandExecuted: 'add_section'
+        };
+
+        // Replace the last message with our refresh message
+        setMessages(prev => {
+          // Remove the last message (which is the regular response)
+          const newMessages = [...prev];
+          newMessages.pop();
+
+          // Add our refresh message
+          return [...newMessages, refreshMessage];
+        });
+
+        // Note: We no longer need to scroll the page here
+        // The 't' parameter in the URL will trigger scrolling after refresh
+      } catch (error) {
+        console.error('Error handling section addition:', error);
+      }
+    }
+  };
+
+  // Add effect to check for 't' parameter in URL and scroll to bottom if present
+  useEffect(() => {
+    // Check if we have the 't' parameter in the URL (timestamp for cache busting)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasTimestampParam = urlParams.has('t');
+
+    if (hasTimestampParam) {
+      console.log('Detected timestamp parameter, scrolling to bottom of page');
+
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, []);  // Empty dependency array means this runs once on component mount
+
+  // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      content: input.trim(),
-      role: 'user',
-      timestamp: Date.now(),
-    };
+    // Get the last message to check if we need to handle confirmation
+    const lastMessage = messages[messages.length - 1];
+    const isConfirmation = lastMessage && lastMessage.needsConfirmation;
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
+    if (!input.trim() && !isConfirmation) {
+      return;
+    }
+
+    // Don't allow submission while loading
+    if (isLoading) {
+      return;
+    }
+
     setIsLoading(true);
-    setAuthError(false);
-
-    // Focus the input field after submission - using a longer timeout to ensure DOM updates complete
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        console.log("Focus set on input field");
-      }
-    }, 100);
 
     try {
-      // Check if this is a confirmation response (yes/no) to a command
-      const lastMessage = messages[messages.length - 1];
-      const isConfirmation = lastMessage?.needsConfirmation &&
-        (input.toLowerCase() === 'yes' || input.toLowerCase() === 'no');
+      // Create a new user message
+      const userMessage: Message = {
+        content: input,
+        role: 'user',
+        timestamp: Date.now(),
+        id: generateUniqueId(),
+      };
+
+      // Add the user message to the chat
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Clear the input
+      setInput('');
 
       // Check if this is a response to a request for more information
-      const isMoreInfoResponse = lastMessage?.isCommand && lastMessage?.needs_more_info === true;
+      const isMoreInfoResponse = lastMessage && lastMessage.needs_more_info;
 
+      // Prepare the request body
       interface ChatRequestBody {
         messages: { role: string; content: string }[];
         confirmed?: string;
         command_type?: string;
         command_prompt?: string;
+        section_type?: string;
+        page_id?: number;
         needs_more_info?: boolean;
       }
 
-      let requestBody: ChatRequestBody = {
-        messages: [
-          {
-            role: 'user',
-            content: userMessage.content
-          }
-        ]
+      const requestBody: ChatRequestBody = {
+        messages: messages
+          .concat(userMessage)
+          .map((msg) => ({ role: msg.role, content: msg.content })),
       };
 
       // If this is a confirmation response, add the necessary parameters
@@ -335,6 +453,20 @@ export default function ChatBot() {
         requestBody.confirmed = input.toLowerCase();
         requestBody.command_type = lastMessage.commandType;
         requestBody.command_prompt = lastMessage.commandPrompt;
+
+        // If this is an add_section command, include the section_type and page_id
+        if (lastMessage.commandType === 'add_section') {
+          requestBody.section_type = lastMessage.section_type;
+
+          // Get the current page ID if we're on a landing page
+          const pageElement = document.querySelector('[data-post-type="landing"]');
+          if (pageElement) {
+            const pageId = pageElement.getAttribute('data-post-id');
+            if (pageId) {
+              requestBody.page_id = parseInt(pageId, 10);
+            }
+          }
+        }
       }
 
       // If this is a response to a request for more information
@@ -342,6 +474,29 @@ export default function ChatBot() {
         requestBody.command_type = lastMessage.commandType || 'landing_page';
         requestBody.command_prompt = userMessage.content; // Use the user's response as the prompt
         requestBody.needs_more_info = true;
+
+        // If this is an add_section command, include the section_type and page_id
+        if (lastMessage.commandType === 'add_section') {
+          requestBody.section_type = lastMessage.section_type;
+
+          // Get the current page ID if we're on a landing page
+          const pageElement = document.querySelector('[data-post-type="landing"]');
+          if (pageElement) {
+            const pageId = pageElement.getAttribute('data-post-id');
+            if (pageId) {
+              requestBody.page_id = parseInt(pageId, 10);
+            }
+          }
+        }
+
+        // If this is a landing_page command, make sure we're sending the topic as the command_prompt
+        if (lastMessage.commandType === 'landing_page') {
+          console.log('Debug - Processing landing page topic:', userMessage.content);
+          requestBody.command_type = 'landing_page';
+          requestBody.command_prompt = userMessage.content;
+          // Keep needs_more_info as true to follow the API's expected flow
+          requestBody.needs_more_info = true;
+        }
       }
 
       const response = await fetch('/api/chat', {
@@ -368,11 +523,19 @@ export default function ChatBot() {
           // Check if this is a token expiration issue
           const isExpiredToken =
             errorData.raw_error?.message?.includes('Expired token') ||
-            errorData.message?.includes('Expired token') ||
-            errorData.expired_token === true;
+            errorData.message?.includes('Expired token');
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              content: "I've detected an authentication issue. Please click the 'Refresh Connection' button below to reconnect to WordPress.",
+              role: 'assistant',
+              timestamp: Date.now(),
+              id: generateUniqueId(),
+            },
+          ]);
 
           if (isExpiredToken) {
-            console.log('Detected expired token, attempting automatic refresh');
             // Try to refresh the token automatically
             const tokenRefreshed = await refreshToken();
             if (tokenRefreshed) {
@@ -399,16 +562,23 @@ export default function ChatBot() {
       }
 
       const data = await response.json();
-      console.log('API Response:', data);
 
       // Check if this was a command response
       const isCommand = data.command_detected || data.command_executed;
       const needsConfirmation = data.needs_confirmation === true;
+      const needsMoreInfo = data.needs_more_info === true;
+
+      // If a section was added, handle it with our special function
+      if (data.section_added) {
+        handleSectionAdded(data);
+        return; // Skip adding the regular message
+      }
 
       const assistantMessage: Message = {
         content: data.content || data.response || 'Sorry, I could not generate a response.',
         role: 'assistant',
         timestamp: Date.now(),
+        id: data.id,
         links: data.links,
         isCommand: !!isCommand,
         commandExecuted: data.command_executed,
@@ -416,36 +586,61 @@ export default function ChatBot() {
         needsConfirmation: needsConfirmation,
         commandType: data.command_type,
         commandPrompt: data.command_prompt,
-        needs_more_info: data.needs_more_info,
+        section_type: data.section_type,
+        needs_more_info: needsMoreInfo,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Check if a section was added and handle it separately
+      if (data.section_added) {
+        handleSectionAdded(data);
+      }
+
+      // If the command was confirmed but we need more info (like for landing page topic)
+      // and the command type is landing_page, we need to ask for the topic
+      if (lastMessage.commandType === 'landing_page' && data.command_type === 'landing_page' &&
+        !data.command_executed && !data.needs_confirmation && !data.needs_more_info) {
+        // Add a message asking for the topic
+        const topicMessage: Message = {
+          content: "I'd be happy to create a landing page for you. What topic or business would you like it to be about?",
+          role: 'assistant',
+          timestamp: Date.now(),
+          id: generateUniqueId(),
+          isCommand: true,
+          commandType: 'landing_page',
+          needs_more_info: true,
+        };
+        setMessages((prev) => [...prev, topicMessage]);
+      }
     } catch (error) {
       console.error('Chat error:', error);
 
-      // Check for specific error messages
+      // Handle errors from the API
       let errorMessage: Message;
       const errorString = error instanceof Error ? error.message : String(error);
 
-      if (errorString.includes('WordPress URL is not configured')) {
+      if (errorString.includes('Missing WordPress URL')) {
         errorMessage = {
-          content: 'The chat feature is not properly configured. The WordPress URL is missing. Please contact the site administrator.',
+          content: 'Please provide your WordPress site URL to continue.',
           role: 'assistant',
           timestamp: Date.now(),
+          id: generateUniqueId(),
         };
-      } else if (errorString.includes('Expired token')) {
-        // Set auth error to true to display the refresh token button
+      } else if (errorString.includes('Authentication required')) {
+        errorMessage = {
+          content: errorString,
+          role: 'assistant',
+          timestamp: Date.now(),
+          id: generateUniqueId(),
+        };
         setAuthError(true);
-        errorMessage = {
-          content: 'Your authentication token has expired. Please look for the "Refresh Token" button in the chat window and click it to get a new token.',
-          role: 'assistant',
-          timestamp: Date.now(),
-        };
       } else {
         errorMessage = {
-          content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
+          content: `Sorry, I encountered an error: ${errorString}`,
           role: 'assistant',
           timestamp: Date.now(),
+          id: generateUniqueId(),
         };
       }
 
@@ -453,6 +648,88 @@ export default function ChatBot() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle link clicks
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, link: { text: string; url: string; command?: string }) => {
+    e.preventDefault();
+
+    // Special handling for refresh and view links
+    if (link.text.includes('Refresh')) {
+      // Refresh the current page
+      window.location.href = link.url;
+      return;
+    } else if (link.text.includes('View')) {
+      // Open in new tab
+      window.open(link.url, '_blank');
+      return;
+    }
+
+    // Handle section links (starts with #add-)
+    if (link.url.startsWith('#add-')) {
+      // Extract the section type from the URL
+      const sectionType = link.url.replace('#add-', '');
+
+      // Get the current page ID if we're on a landing page
+      const pageElement = document.querySelector('[data-post-type="landing"]');
+      let pageId = null;
+
+      if (pageElement) {
+        pageId = pageElement.getAttribute('data-post-id');
+      }
+
+      // Add a user message showing what they clicked
+      const userMessage: Message = {
+        content: link.text.includes('Landing') ? 'add landing' : `add ${sectionType} section`,
+        role: 'user',
+        timestamp: Date.now(),
+        id: generateUniqueId(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      // For landing page creation - directly ask for a topic
+      if (sectionType === 'landing') {
+        // Add a message asking for a topic
+        const topicMessage: Message = {
+          content: "I'd be happy to create a landing page for you. What topic or business would you like it to be about?",
+          role: 'assistant',
+          timestamp: Date.now(),
+          id: generateUniqueId(),
+          isCommand: true,
+          commandType: 'landing_page',
+          needs_more_info: true,
+        };
+        setMessages((prev) => [...prev, topicMessage]);
+      }
+      // For section addition
+      else {
+        // Add a system message asking for a description
+        const systemMessage: Message = {
+          content: `I'd be happy to add a ${sectionType} section to this landing page. What would you like this section to be about? Please provide a brief description or topic.`,
+          role: 'assistant',
+          timestamp: Date.now(),
+          id: generateUniqueId(),
+          isCommand: true,
+          commandType: 'add_section',
+          section_type: sectionType,
+          needs_more_info: true,
+          page_id: pageId ? parseInt(pageId, 10) : undefined,
+        };
+        setMessages((prev) => [...prev, systemMessage]);
+      }
+
+      // Focus the input field
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+
+      return;
+    }
+
+    // Default behavior - open the link in a new tab
+    window.open(link.url, '_blank');
   };
 
   return (
@@ -481,10 +758,10 @@ export default function ChatBot() {
               <span className="text-xl">✕</span>
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-white">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 bg-white chat-messages">
             {messages.map((message) => (
               <div
-                key={message.timestamp}
+                key={message.id || `${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`}
                 className={`flex items-start gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
@@ -500,388 +777,437 @@ export default function ChatBot() {
                         : 'bg-gray-100 text-gray-800'
                     }`}
                 >
-                  {message.role === 'user' ? (
-                    message.content
-                  ) : (
-                    <div>
-                      <div className="prose max-w-none [&_p]:mt-0 [&_p]:mb-2 last:[&_p]:mb-0 prose-a:text-primary prose-code:text-gray-800 prose-pre:bg-gray-100 prose-pre:text-gray-800 prose-li:text-gray-800 prose-p:text-gray-800 [&_ul]:text-gray-800 [&_li]:marker:text-gray-800 [&_ol]:text-gray-800 prose-strong:text-gray-900 [&_strong]:font-bold">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            a: ({ children, ...props }: any) => (
-                              <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-1 rounded transition-colors">
-                                {children}
-                              </a>
-                            ),
-                            code: ({ inline, className, children, ...props }: any) => {
-                              const code = String(children).replace(/\n$/, '');
+                  <div className="whitespace-pre-wrap">{message.content}</div>
 
-                              if (inline) {
-                                return (
-                                  <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded font-mono text-sm" {...props}>
-                                    {children}
-                                  </code>
-                                );
+                  {/* Links */}
+                  {message.links && message.links.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="flex flex-wrap gap-2">
+                        {message.links.map((link, index) => (
+                          <a
+                            key={index}
+                            href={link.url}
+                            onClick={(e) => handleLinkClick(e, link)}
+                            className={`text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${link.text.includes('Refresh')
+                              ? 'text-white bg-primary hover:bg-primary/90'
+                              : link.text.includes('View')
+                                ? 'text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20'
+                                : 'text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20'
+                              }`}
+                          >
+                            {link.text}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirmation UI */}
+                  {message.needsConfirmation && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="text-xs font-medium text-gray-500 mb-1.5">Please confirm:</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => {
+                            const userMessage: Message = {
+                              content: 'yes',
+                              role: 'user',
+                              timestamp: Date.now(),
+                              id: generateUniqueId(),
+                            };
+                            setMessages((prev) => [...prev, userMessage]);
+                            setIsLoading(true);
+                            setAuthError(false);
+
+                            // Prepare the request body with confirmation parameters
+                            const requestBody: ConfirmationRequestBody = {
+                              messages: [{ role: 'user', content: 'yes' }],
+                              confirmed: 'yes',
+                              command_type: message.commandType,
+                              command_prompt: message.commandPrompt,
+                              message: 'yes',
+                            };
+
+                            // If this is an add_section command, include the section_type and page_id
+                            if (message.commandType === 'add_section') {
+                              requestBody.section_type = message.section_type;
+
+                              // Include the page_id from the message if it exists
+                              if (message.page_id) {
+                                requestBody.page_id = message.page_id;
+                                console.log('Debug - Including page ID in confirmation:', message.page_id);
+                              } else {
+                                // Fallback: try to get the current page ID if we're on a landing page
+                                const pageElement = document.querySelector('[data-post-type="landing"]');
+                                if (pageElement) {
+                                  const pageId = pageElement.getAttribute('data-post-id');
+                                  if (pageId) {
+                                    requestBody.page_id = parseInt(pageId, 10);
+                                    console.log('Debug - Found page ID for confirmation:', requestBody.page_id);
+                                  }
+                                }
+                              }
+                            }
+                            // If this is a landing_page command, ensure we're sending the right parameters
+                            else if (message.commandType === 'landing_page') {
+                              console.log('Debug - Processing landing page confirmation');
+                              // Make sure we're sending the command_type
+                              requestBody.command_type = 'landing_page';
+
+                              // Include the command_prompt (topic) that was confirmed
+                              if (message.commandPrompt) {
+                                requestBody.command_prompt = message.commandPrompt;
+                                console.log('Debug - Creating landing page with topic:', message.commandPrompt);
                               }
 
-                              const isCopied = copiedCode === code;
-
-                              return (
-                                <div className="relative group">
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(code);
-                                      setCopiedCode(code);
-                                    }}
-                                    className="absolute right-2 top-2 p-2 rounded-lg bg-gray-200 text-gray-600 hover:text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    aria-label="Copy code"
-                                  >
-                                    {isCopied ? (
-                                      <Check className="w-4 h-4 text-green-600" />
-                                    ) : (
-                                      <Copy className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                  <pre className="bg-gray-50 ring-1 ring-gray-200 text-gray-800 p-3 rounded-lg font-mono text-sm overflow-x-auto my-2">
-                                    <code className={className} {...props}>
-                                      {children}
-                                    </code>
-                                  </pre>
-                                </div>
-                              );
+                              // Set confirmed to yes to tell the API to create the landing page
+                              requestBody.confirmed = 'yes';
                             }
+
+                            // Send the request directly
+                            fetch('/api/chat', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              cache: 'no-store',
+                              body: JSON.stringify(requestBody),
+                            })
+                              .then(async (response) => {
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  console.error('API Error:', errorData);
+
+                                  // Handle authentication errors
+                                  if (response.status === 401) {
+                                    setAuthError(true);
+                                    if (errorData.wp_url) {
+                                      setLoginUrl(`${errorData.wp_url}/wp-login.php`);
+                                    }
+
+                                    // Check if this is a token expiration issue
+                                    const isExpiredToken =
+                                      errorData.raw_error?.message?.includes('Expired token') ||
+                                      errorData.message?.includes('Expired token');
+
+                                    if (isExpiredToken) {
+                                      setMessages((prev) => [
+                                        ...prev,
+                                        {
+                                          content: "I've detected an authentication issue. Please click the 'Refresh Connection' button below to reconnect to WordPress.",
+                                          role: 'assistant',
+                                          timestamp: Date.now(),
+                                          id: generateUniqueId(),
+                                        },
+                                      ]);
+                                    } else {
+                                      // Try to refresh token for other auth errors
+                                      const tokenRefreshed = await refreshToken();
+                                      if (tokenRefreshed) {
+                                        // Retry the request if token refreshed
+                                        return fetch('/api/chat', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          cache: 'no-store',
+                                          body: JSON.stringify(requestBody),
+                                        });
+                                      }
+                                    }
+
+                                    throw new Error(errorData.message || errorData.error || 'Authentication required. Please refresh your token.');
+                                  } else if (response.status === 403) {
+                                    throw new Error('Chat is only available in preview mode.');
+                                  } else {
+                                    throw new Error(errorData.message || errorData.error || 'Failed to get response');
+                                  }
+                                }
+                                return response.json();
+                              })
+                              .then((data) => {
+                                console.log('API Response:', data);
+
+                                // Check if this was a command response
+                                const isCommand = data.command_detected || data.command_executed;
+                                const needsConfirmation = data.needs_confirmation === true;
+                                const needsMoreInfo = data.needs_more_info === true;
+
+                                // Create the assistant message from the API response
+                                const assistantMessage: Message = {
+                                  content: data.content || data.response || 'Sorry, I could not generate a response.',
+                                  role: 'assistant',
+                                  timestamp: Date.now(),
+                                  id: data.id,
+                                  links: data.links,
+                                  isCommand: !!isCommand,
+                                  commandExecuted: data.command_executed,
+                                  commandFailed: data.command_failed,
+                                  needsConfirmation: needsConfirmation,
+                                  commandType: data.command_type,
+                                  commandPrompt: data.command_prompt,
+                                  section_type: data.section_type,
+                                  needs_more_info: needsMoreInfo,
+                                };
+
+                                // Add the assistant message to the chat
+                                setMessages((prev) => [...prev, assistantMessage]);
+
+                                // Check if a section was added and handle it separately
+                                if (data.section_added) {
+                                  handleSectionAdded(data);
+                                }
+
+                                // If this was a landing page confirmation and the API didn't ask for more info,
+                                // explicitly add a topic request message
+                                if (message.commandType === 'landing_page' &&
+                                  !data.command_executed && !data.needs_confirmation && !data.needs_more_info) {
+                                  console.log('Debug - Adding explicit topic request after landing page confirmation');
+
+                                  // Add a slight delay to make the conversation flow more natural
+                                  setTimeout(() => {
+                                    const topicMessage: Message = {
+                                      content: "What topic or business would you like the landing page to be about?",
+                                      role: 'assistant',
+                                      timestamp: Date.now(),
+                                      id: generateUniqueId(),
+                                      isCommand: true,
+                                      commandType: 'landing_page',
+                                      needs_more_info: true,
+                                    };
+                                    setMessages((prev) => [...prev, topicMessage]);
+                                  }, 500);
+                                }
+                              })
+                              .catch((error) => {
+                                console.error('Chat error:', error);
+
+                                // Handle errors from the API
+                                let errorMessage: Message;
+                                const errorString = error instanceof Error ? error.message : String(error);
+
+                                if (errorString.includes('Missing WordPress URL')) {
+                                  errorMessage = {
+                                    content: 'The chat feature is not properly configured. The WordPress URL is missing. Please contact the site administrator.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                } else if (errorString.includes('Expired token')) {
+                                  // Set auth error to true to display the refresh token button
+                                  setAuthError(true);
+                                  errorMessage = {
+                                    content: 'Your authentication token has expired. Please look for the "Refresh Token" button in the chat window and click it to get a new token.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                } else {
+                                  errorMessage = {
+                                    content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                }
+
+                                setMessages((prev) => [...prev, errorMessage]);
+                              })
+                              .finally(() => {
+                                setIsLoading(false);
+                              });
                           }}
+                          className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors text-green-700 hover:text-green-800 bg-green-100 hover:bg-green-200"
                         >
-                          {message.content}
-                        </ReactMarkdown>
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => {
+                            const userMessage: Message = {
+                              content: 'no',
+                              role: 'user',
+                              timestamp: Date.now(),
+                              id: generateUniqueId(),
+                            };
+                            setMessages((prev) => [...prev, userMessage]);
+                            setIsLoading(true);
+                            setAuthError(false);
+
+                            // Prepare the request body with confirmation parameters
+                            const requestBody: ConfirmationRequestBody = {
+                              messages: [{ role: 'user', content: 'no' }],
+                              confirmed: 'no',
+                              command_type: message.commandType,
+                              command_prompt: message.commandPrompt,
+                              message: 'no',
+                            };
+
+                            // If this is an add_section command, include the section_type and page_id
+                            if (message.commandType === 'add_section') {
+                              requestBody.section_type = message.section_type;
+
+                              // Include the page_id from the message if it exists
+                              if (message.page_id) {
+                                requestBody.page_id = message.page_id;
+                                console.log('Debug - Including page ID in no confirmation:', message.page_id);
+                              } else {
+                                // Fallback: try to get the current page ID if we're on a landing page
+                                const pageElement = document.querySelector('[data-post-type="landing"]');
+                                if (pageElement) {
+                                  const pageId = pageElement.getAttribute('data-post-id');
+                                  if (pageId) {
+                                    requestBody.page_id = parseInt(pageId, 10);
+                                    console.log('Debug - Found page ID for no confirmation:', requestBody.page_id);
+                                  }
+                                }
+                              }
+                            }
+
+                            // Send the request directly
+                            fetch('/api/chat', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              cache: 'no-store',
+                              body: JSON.stringify(requestBody),
+                            })
+                              .then(async (response) => {
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  console.error('API Error:', errorData);
+
+                                  // Handle authentication errors
+                                  if (response.status === 401) {
+                                    setAuthError(true);
+                                    if (errorData.wp_url) {
+                                      setLoginUrl(`${errorData.wp_url}/wp-login.php`);
+                                    }
+
+                                    // Check if this is a token expiration issue
+                                    const isExpiredToken =
+                                      errorData.raw_error?.message?.includes('Expired token') ||
+                                      errorData.message?.includes('Expired token') ||
+                                      errorData.expired_token === true;
+
+                                    if (isExpiredToken) {
+                                      const tokenRefreshed = await refreshToken();
+                                      if (tokenRefreshed) {
+                                        // Retry the request if token refreshed
+                                        return fetch('/api/chat', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          cache: 'no-store',
+                                          body: JSON.stringify(requestBody),
+                                        });
+                                      }
+                                    } else {
+                                      // Try to refresh token for other auth errors
+                                      const tokenRefreshed = await refreshToken();
+                                      if (tokenRefreshed) {
+                                        // Retry the request if token refreshed
+                                        return fetch('/api/chat', {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          cache: 'no-store',
+                                          body: JSON.stringify(requestBody),
+                                        });
+                                      }
+                                    }
+
+                                    throw new Error(errorData.message || errorData.error || 'Authentication required. Please refresh your token.');
+                                  } else if (response.status === 403) {
+                                    throw new Error('Chat is only available in preview mode.');
+                                  } else {
+                                    throw new Error(errorData.message || errorData.error || 'Failed to get response');
+                                  }
+                                }
+                                return response.json();
+                              })
+                              .then((data) => {
+                                console.log('API Response:', data);
+
+                                // Check if this was a command response
+                                const isCommand = data.command_detected || data.command_executed;
+                                const needsConfirmation = data.needs_confirmation === true;
+                                const needsMoreInfo = data.needs_more_info === true;
+
+                                // Create the assistant message from the API response
+                                const assistantMessage: Message = {
+                                  content: data.content || data.response || 'Sorry, I could not generate a response.',
+                                  role: 'assistant',
+                                  timestamp: Date.now(),
+                                  id: data.id,
+                                  links: data.links,
+                                  isCommand: !!isCommand,
+                                  commandExecuted: data.command_executed,
+                                  commandFailed: data.command_failed,
+                                  needsConfirmation: needsConfirmation,
+                                  commandType: data.command_type,
+                                  commandPrompt: data.command_prompt,
+                                  section_type: data.section_type,
+                                  needs_more_info: needsMoreInfo,
+                                };
+
+                                // Add the assistant message to the chat
+                                setMessages((prev) => [...prev, assistantMessage]);
+                              })
+                              .catch((error) => {
+                                console.error('Chat error:', error);
+
+                                // Handle errors from the API
+                                let errorMessage: Message;
+                                const errorString = error instanceof Error ? error.message : String(error);
+
+                                if (errorString.includes('Missing WordPress URL')) {
+                                  errorMessage = {
+                                    content: 'The chat feature is not properly configured. The WordPress URL is missing. Please contact the site administrator.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                } else if (errorString.includes('Expired token')) {
+                                  // Set auth error to true to display the refresh token button
+                                  setAuthError(true);
+                                  errorMessage = {
+                                    content: 'Your authentication token has expired. Please look for the "Refresh Token" button in the chat window and click it to get a new token.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                } else {
+                                  errorMessage = {
+                                    content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
+                                    role: 'assistant',
+                                    timestamp: Date.now(),
+                                    id: generateUniqueId(),
+                                  };
+                                }
+
+                                setMessages((prev) => [...prev, errorMessage]);
+                              })
+                              .finally(() => {
+                                setIsLoading(false);
+                              });
+                          }}
+                          className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors text-red-700 hover:text-red-800 bg-red-100 hover:bg-red-200"
+                        >
+                          No
+                        </button>
                       </div>
-                      {message.needsConfirmation && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <div className="text-xs font-medium text-gray-500 mb-1.5">Please confirm:</div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => {
-                                const userMessage: Message = {
-                                  content: 'yes',
-                                  role: 'user',
-                                  timestamp: Date.now(),
-                                };
-                                setMessages((prev) => [...prev, userMessage]);
-                                setIsLoading(true);
-                                setAuthError(false);
+                    </div>
+                  )}
 
-                                // Prepare the request body with confirmation parameters
-                                const requestBody = {
-                                  messages: [{ role: 'user', content: 'yes' }],
-                                  confirmed: 'yes',
-                                  command_type: message.commandType,
-                                  command_prompt: message.commandPrompt,
-                                };
-
-                                // Send the request directly
-                                fetch('/api/chat', {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  cache: 'no-store',
-                                  body: JSON.stringify(requestBody),
-                                })
-                                  .then(async (response) => {
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      console.error('API Error:', errorData);
-
-                                      // Handle authentication errors
-                                      if (response.status === 401) {
-                                        setAuthError(true);
-                                        if (errorData.wp_url) {
-                                          setLoginUrl(`${errorData.wp_url}/wp-login.php`);
-                                        }
-
-                                        // Try to refresh token if expired
-                                        const isExpiredToken =
-                                          errorData.raw_error?.message?.includes('Expired token') ||
-                                          errorData.message?.includes('Expired token') ||
-                                          errorData.expired_token === true;
-
-                                        if (isExpiredToken) {
-                                          const tokenRefreshed = await refreshToken();
-                                          if (tokenRefreshed) {
-                                            // Retry the request if token refreshed
-                                            return fetch('/api/chat', {
-                                              method: 'POST',
-                                              headers: {
-                                                'Content-Type': 'application/json',
-                                              },
-                                              cache: 'no-store',
-                                              body: JSON.stringify(requestBody),
-                                            });
-                                          }
-                                        } else {
-                                          // Try to refresh token for other auth errors
-                                          const tokenRefreshed = await refreshToken();
-                                          if (tokenRefreshed) {
-                                            // Retry the request if token refreshed
-                                            return fetch('/api/chat', {
-                                              method: 'POST',
-                                              headers: {
-                                                'Content-Type': 'application/json',
-                                              },
-                                              cache: 'no-store',
-                                              body: JSON.stringify(requestBody),
-                                            });
-                                          }
-                                        }
-
-                                        throw new Error(errorData.message || errorData.error || 'Authentication required. Please refresh your token.');
-                                      } else if (response.status === 403) {
-                                        throw new Error('Chat is only available in preview mode.');
-                                      } else {
-                                        throw new Error(errorData.message || errorData.error || 'Failed to get response');
-                                      }
-                                    }
-                                    return response.json();
-                                  })
-                                  .then((data) => {
-                                    console.log('API Response:', data);
-
-                                    // Check if this was a command response
-                                    const isCommand = data.command_detected || data.command_executed;
-                                    const needsConfirmation = data.needs_confirmation === true;
-
-                                    const assistantMessage: Message = {
-                                      content: data.content || data.response || 'Sorry, I could not generate a response.',
-                                      role: 'assistant',
-                                      timestamp: Date.now(),
-                                      links: data.links,
-                                      isCommand: !!isCommand,
-                                      commandExecuted: data.command_executed,
-                                      commandFailed: data.command_failed,
-                                      needsConfirmation: needsConfirmation,
-                                      commandType: data.command_type,
-                                      commandPrompt: data.command_prompt,
-                                      needs_more_info: data.needs_more_info,
-                                    };
-
-                                    setMessages((prev) => [...prev, assistantMessage]);
-                                  })
-                                  .catch((error) => {
-                                    console.error('Chat error:', error);
-
-                                    // Check for specific error messages
-                                    let errorMessage: Message;
-                                    const errorString = error instanceof Error ? error.message : String(error);
-
-                                    if (errorString.includes('WordPress URL is not configured')) {
-                                      errorMessage = {
-                                        content: 'The chat feature is not properly configured. The WordPress URL is missing. Please contact the site administrator.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    } else if (errorString.includes('Expired token')) {
-                                      // Set auth error to true to display the refresh token button
-                                      setAuthError(true);
-                                      errorMessage = {
-                                        content: 'Your authentication token has expired. Please look for the "Refresh Token" button in the chat window and click it to get a new token.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    } else {
-                                      errorMessage = {
-                                        content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    }
-
-                                    setMessages((prev) => [...prev, errorMessage]);
-                                  })
-                                  .finally(() => {
-                                    setIsLoading(false);
-                                  });
-                              }}
-                              className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors text-green-700 hover:text-green-800 bg-green-100 hover:bg-green-200"
-                            >
-                              Yes
-                            </button>
-                            <button
-                              onClick={() => {
-                                const userMessage: Message = {
-                                  content: 'no',
-                                  role: 'user',
-                                  timestamp: Date.now(),
-                                };
-                                setMessages((prev) => [...prev, userMessage]);
-                                setIsLoading(true);
-                                setAuthError(false);
-
-                                // Prepare the request body with confirmation parameters
-                                const requestBody = {
-                                  messages: [{ role: 'user', content: 'no' }],
-                                  confirmed: 'no',
-                                  command_type: message.commandType,
-                                  command_prompt: message.commandPrompt,
-                                };
-
-                                // Send the request directly
-                                fetch('/api/chat', {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  cache: 'no-store',
-                                  body: JSON.stringify(requestBody),
-                                })
-                                  .then(async (response) => {
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      console.error('API Error:', errorData);
-
-                                      // Handle authentication errors
-                                      if (response.status === 401) {
-                                        setAuthError(true);
-                                        if (errorData.wp_url) {
-                                          setLoginUrl(`${errorData.wp_url}/wp-login.php`);
-                                        }
-
-                                        // Try to refresh token if expired
-                                        const isExpiredToken =
-                                          errorData.raw_error?.message?.includes('Expired token') ||
-                                          errorData.message?.includes('Expired token') ||
-                                          errorData.expired_token === true;
-
-                                        if (isExpiredToken) {
-                                          const tokenRefreshed = await refreshToken();
-                                          if (tokenRefreshed) {
-                                            // Retry the request if token refreshed
-                                            return fetch('/api/chat', {
-                                              method: 'POST',
-                                              headers: {
-                                                'Content-Type': 'application/json',
-                                              },
-                                              cache: 'no-store',
-                                              body: JSON.stringify(requestBody),
-                                            });
-                                          }
-                                        } else {
-                                          // Try to refresh token for other auth errors
-                                          const tokenRefreshed = await refreshToken();
-                                          if (tokenRefreshed) {
-                                            // Retry the request if token refreshed
-                                            return fetch('/api/chat', {
-                                              method: 'POST',
-                                              headers: {
-                                                'Content-Type': 'application/json',
-                                              },
-                                              cache: 'no-store',
-                                              body: JSON.stringify(requestBody),
-                                            });
-                                          }
-                                        }
-
-                                        throw new Error(errorData.message || errorData.error || 'Authentication required. Please refresh your token.');
-                                      } else if (response.status === 403) {
-                                        throw new Error('Chat is only available in preview mode.');
-                                      } else {
-                                        throw new Error(errorData.message || errorData.error || 'Failed to get response');
-                                      }
-                                    }
-                                    return response.json();
-                                  })
-                                  .then((data) => {
-                                    console.log('API Response:', data);
-
-                                    // Check if this was a command response
-                                    const isCommand = data.command_detected || data.command_executed;
-                                    const needsConfirmation = data.needs_confirmation === true;
-
-                                    const assistantMessage: Message = {
-                                      content: data.content || data.response || 'Sorry, I could not generate a response.',
-                                      role: 'assistant',
-                                      timestamp: Date.now(),
-                                      links: data.links,
-                                      isCommand: !!isCommand,
-                                      commandExecuted: data.command_executed,
-                                      commandFailed: data.command_failed,
-                                      needsConfirmation: needsConfirmation,
-                                      commandType: data.command_type,
-                                      commandPrompt: data.command_prompt,
-                                      needs_more_info: data.needs_more_info,
-                                    };
-
-                                    setMessages((prev) => [...prev, assistantMessage]);
-                                  })
-                                  .catch((error) => {
-                                    console.error('Chat error:', error);
-
-                                    // Check for specific error messages
-                                    let errorMessage: Message;
-                                    const errorString = error instanceof Error ? error.message : String(error);
-
-                                    if (errorString.includes('WordPress URL is not configured')) {
-                                      errorMessage = {
-                                        content: 'The chat feature is not properly configured. The WordPress URL is missing. Please contact the site administrator.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    } else if (errorString.includes('Expired token')) {
-                                      // Set auth error to true to display the refresh token button
-                                      setAuthError(true);
-                                      errorMessage = {
-                                        content: 'Your authentication token has expired. Please look for the "Refresh Token" button in the chat window and click it to get a new token.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    } else {
-                                      errorMessage = {
-                                        content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
-                                        role: 'assistant',
-                                        timestamp: Date.now(),
-                                      };
-                                    }
-
-                                    setMessages((prev) => [...prev, errorMessage]);
-                                  })
-                                  .finally(() => {
-                                    setIsLoading(false);
-                                  });
-                              }}
-                              className="text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors text-red-700 hover:text-red-800 bg-red-100 hover:bg-red-200"
-                            >
-                              No
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {message.links && message.links.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <div className="text-xs font-medium text-gray-500 mb-1.5">Related Links:</div>
-                          <div className="flex flex-wrap gap-2">
-                            {message.links.map((link, index) => (
-                              <a
-                                key={index}
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`text-sm font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors ${message.commandExecuted === 'create_ai_landing'
-                                  ? 'text-green-700 hover:text-green-800 bg-green-100 hover:bg-green-200'
-                                  : 'text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20'
-                                  }`}
-                              >
-                                {link.text}
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {message.commandExecuted && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          {message.commandFailed
-                            ? '❌ Command failed'
-                            : '✅ Command executed successfully'}
-                        </div>
-                      )}
+                  {/* Command execution status */}
+                  {message.commandExecuted && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      {message.commandFailed
+                        ? '❌ Command failed'
+                        : '✅ Command executed successfully'}
                     </div>
                   )}
                 </div>
@@ -895,22 +1221,6 @@ export default function ChatBot() {
                 <Bot className="w-6 h-6 text-primary mt-1" />
                 <div className="bg-gray-100 text-gray-800 rounded-lg p-3 animate-pulse">
                   Thinking...
-                </div>
-              </div>
-            )}
-            {authError && (
-              <div className="flex justify-center my-4">
-                <div className="bg-amber-50 text-amber-800 border border-amber-200 rounded-lg p-3 text-sm w-full">
-                  <p className="mb-2">Your session has expired. Please refresh your authentication token to continue.</p>
-                  <div className="flex flex-col space-y-2">
-                    <button
-                      onClick={refreshToken}
-                      disabled={isRefreshing}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                    >
-                      {isRefreshing ? 'Refreshing token...' : 'Refresh Token'}
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
@@ -937,7 +1247,7 @@ export default function ChatBot() {
             </div>
             {authError && (
               <div className="mt-2 text-xs text-amber-600 text-center">
-                Click the "Refresh Token" button above to automatically reconnect.
+                Authentication error. Please try refreshing your token.
               </div>
             )}
           </form>

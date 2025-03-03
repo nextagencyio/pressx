@@ -280,3 +280,131 @@ function pressx_extract_keywords($content) {
   // Return top keywords.
   return array_slice(array_keys($word_counts), 0, 5);
 }
+
+/**
+ * Generate content using Groq API.
+ *
+ * @param string $system_prompt
+ *   The system prompt.
+ * @param string $user_prompt
+ *   The user prompt.
+ * @param string $api_key
+ *   The Groq API key.
+ *
+ * @return string
+ *   The generated content.
+ */
+function pressx_generate_with_groq($system_prompt, $user_prompt = '', $api_key = '') {
+  if (empty($api_key)) {
+    $api_key = defined('GROQ_API_KEY') ? GROQ_API_KEY : '';
+  }
+
+  if (empty($api_key)) {
+    error_log('Groq API key is not set.');
+    return '';
+  }
+
+  $url = 'https://api.groq.com/openai/v1/chat/completions';
+  $headers = [
+    'Authorization: Bearer ' . $api_key,
+    'Content-Type: application/json',
+  ];
+  $model = defined('GROQ_MODEL') ? GROQ_MODEL : 'llama-3.3-70b-versatile';
+
+  $data = [
+    'model' => $model,
+    'messages' => array_filter([
+      !empty($system_prompt) ? ['role' => 'system', 'content' => $system_prompt] : NULL,
+      !empty($user_prompt) ? ['role' => 'user', 'content' => $user_prompt] : NULL,
+    ]),
+    'temperature' => 0.7,
+    'max_tokens' => 4000,
+  ];
+
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($ch, CURLOPT_POST, TRUE);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+  curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+  $response = curl_exec($ch);
+  $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+
+  if ($http_code !== 200) {
+    error_log('Groq API request failed with HTTP code ' . $http_code . ': ' . $response);
+    return '';
+  }
+
+  $response_data = json_decode($response, TRUE);
+  if (isset($response_data['choices'][0]['message']['content'])) {
+    return $response_data['choices'][0]['message']['content'];
+  }
+
+  return '';
+}
+
+/**
+ * Generate content using OpenRouter API.
+ *
+ * @param string $system_prompt
+ *   The system prompt.
+ * @param string $user_prompt
+ *   The user prompt.
+ * @param string $api_key
+ *   The OpenRouter API key.
+ *
+ * @return string
+ *   The generated content.
+ */
+function pressx_generate_with_openrouter($system_prompt, $user_prompt = '', $api_key = '') {
+  if (empty($api_key)) {
+    $api_key = defined('OPENROUTER_API_KEY') ? OPENROUTER_API_KEY : '';
+  }
+
+  if (empty($api_key)) {
+    error_log('OpenRouter API key is not set.');
+    return '';
+  }
+
+  $url = 'https://openrouter.ai/api/v1/chat/completions';
+  $headers = [
+    'Authorization: Bearer ' . $api_key,
+    'Content-Type: application/json',
+    'HTTP-Referer: https://pressx.io',
+    'X-Title: PressX',
+  ];
+  $model = defined('OPENROUTER_MODEL') ? OPENROUTER_MODEL : 'anthropic/claude-3-opus:beta';
+
+  $data = [
+    'model' => $model,
+    'messages' => array_filter([
+      !empty($system_prompt) ? ['role' => 'system', 'content' => $system_prompt] : NULL,
+      !empty($user_prompt) ? ['role' => 'user', 'content' => $user_prompt] : NULL,
+    ]),
+    'temperature' => 0.7,
+    'max_tokens' => 4000,
+  ];
+
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+  curl_setopt($ch, CURLOPT_POST, TRUE);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+  curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+  $response = curl_exec($ch);
+  $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+
+  if ($http_code !== 200) {
+    error_log('OpenRouter API request failed with HTTP code ' . $http_code . ': ' . $response);
+    return '';
+  }
+
+  $response_data = json_decode($response, TRUE);
+  if (isset($response_data['choices'][0]['message']['content'])) {
+    return $response_data['choices'][0]['message']['content'];
+  }
+
+  return '';
+}

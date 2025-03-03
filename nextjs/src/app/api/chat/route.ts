@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 
 // Parse cookies from header string
 function parseCookies(cookieHeader: string) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const req = await request.json();
-    const { messages, confirmed, command_type, command_prompt, needs_more_info } = req;
+    const { messages, confirmed, command_type, command_prompt, needs_more_info, section_type, page_id } = req;
 
     // Check if preview mode is enabled
     const previewMode = process.env.NEXT_PUBLIC_PREVIEW_MODE === 'true';
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
       // Add confirmation parameters if they exist
       if (confirmed) {
         requestBody.confirmed = confirmed;
+        // If this is a confirmation, use the confirmation as the message
+        requestBody.message = confirmed;
       }
 
       if (command_type) {
@@ -109,6 +112,17 @@ export async function POST(request: NextRequest) {
 
       if (needs_more_info) {
         requestBody.needs_more_info = needs_more_info;
+      }
+
+      // Add section_type if it exists
+      if (section_type) {
+        requestBody.section_type = section_type;
+      }
+
+      // Add page_id if it exists
+      if (page_id) {
+        requestBody.page_id = page_id;
+        console.log('Debug - Sending page_id to WordPress API:', page_id);
       }
 
       const response = await fetch(`${wpUrl}/wp-json/pressx/v1/chat`, {
@@ -174,8 +188,17 @@ export async function POST(request: NextRequest) {
       const data = await response.json();
       console.log('WordPress API response data:', data);
 
-      // Format response for the ChatBot
-      return NextResponse.json({
+      // Debug section data for instant preview
+      if (data.section_added) {
+        console.log('Section added response:', {
+          section_added: data.section_added,
+          dev_mode: data.dev_mode,
+          section_data: data.section_data
+        });
+      }
+
+      // Prepare the response
+      const responseData = {
         content: data.response,
         response: data.response,
         command_detected: data.command_detected || false,
@@ -185,8 +208,32 @@ export async function POST(request: NextRequest) {
         needs_confirmation: data.needs_confirmation || false,
         command_type: data.command_type || null,
         command_prompt: data.command_prompt || null,
+        section_type: data.section_type || null,
         links: data.links || [],
-      });
+        section_added: data.section_added || false,
+        dev_mode: data.dev_mode || false,
+        section_data: data.section_data || null,
+        revalidated: false,
+      };
+
+      // If a section was added and we have section_data with a page_url, add a cache busting parameter
+      if (data.section_added && data.section_data && data.section_data.page_url) {
+        try {
+          // Add a timestamp to the page_url to force a cache bust
+          const timestamp = Date.now();
+          const url = new URL(data.section_data.page_url);
+          url.searchParams.set('t', timestamp.toString());
+          data.section_data.page_url = url.toString();
+          console.log('Updated page URL with cache bust:', data.section_data.page_url);
+
+          // We're not using revalidatePath anymore since we're handling refresh via UI buttons
+          responseData.revalidated = false;
+        } catch (error) {
+          console.error('Error updating page URL:', error);
+        }
+      }
+
+      return NextResponse.json(responseData);
     } catch (error) {
       console.error('Error calling WordPress API:', error);
       return NextResponse.json(

@@ -72,7 +72,7 @@ function pressx_create_ai_landing($prompt = '', $is_cli = TRUE) {
   $default_image_url = $default_image_id ? wp_get_attachment_url($default_image_id) : '';
 
   // Sanitize the prompt.
-  $prompt = sanitize_prompt($prompt);
+  $prompt = pressx_sanitize_prompt($prompt);
 
   // Suggest improvements if the prompt is too generic and we're in CLI mode.
   if ($is_cli && class_exists('WP_CLI') && defined('WP_CLI') && WP_CLI) {
@@ -481,7 +481,7 @@ Your response format should be valid JSON that looks EXACTLY like this (with you
  * @return string
  *   The sanitized prompt.
  */
-function sanitize_prompt($prompt) {
+function pressx_sanitize_prompt($prompt) {
   return pressx_sanitize_prompt($prompt);
 }
 
