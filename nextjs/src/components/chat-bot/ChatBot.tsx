@@ -117,7 +117,7 @@ export default function ChatBot() {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const welcomeMessage: Message = {
-        content: "👋 Hi there! I'm the PressX ChatBot. I can help you create landing pages or add sections to existing ones.\n\nSections:",
+        content: "👋 Hi there! I'm the PressX ChatBot. I can help you create landing pages or add sections to existing ones.\n\nCommands:",
         role: 'assistant',
         timestamp: Date.now(),
         id: generateUniqueId(),
@@ -145,12 +145,12 @@ export default function ChatBot() {
           {
             text: 'side by side',
             url: '#add-side-by-side',
-            command: 'add side by side section',
+            command: 'add side_by_side section',
           },
           {
             text: 'card group',
             url: '#add-card-group',
-            command: 'add card group section',
+            command: 'add card_group section',
           },
           {
             text: 'gallery',
@@ -481,14 +481,31 @@ export default function ChatBot() {
 
         // If this is an add_section command, include the section_type and page_id
         if (lastMessage.commandType === 'add_section') {
-          requestBody.section_type = lastMessage.section_type;
+          // Ensure section_type is in the correct format
+          let apiSectionType = lastMessage.section_type;
 
-          // Get the current page ID if we're on a landing page
-          const pageElement = document.querySelector('[data-post-type="landing"]');
-          if (pageElement) {
-            const pageId = pageElement.getAttribute('data-post-id');
-            if (pageId) {
-              requestBody.page_id = parseInt(pageId, 10);
+          // Handle special cases
+          if (lastMessage.section_type === 'side-by-side') {
+            apiSectionType = 'side_by_side';
+          } else if (lastMessage.section_type === 'card-group') {
+            apiSectionType = 'card_group';
+          }
+
+          requestBody.section_type = apiSectionType;
+
+          // Include the page_id from the message if it exists
+          if (lastMessage.page_id) {
+            requestBody.page_id = lastMessage.page_id;
+            console.log('Debug - Including page ID in confirmation:', lastMessage.page_id);
+          } else {
+            // Fallback: try to get the current page ID if we're on a landing page
+            const pageElement = document.querySelector('[data-post-type="landing"]');
+            if (pageElement) {
+              const pageId = pageElement.getAttribute('data-post-id');
+              if (pageId) {
+                requestBody.page_id = parseInt(pageId, 10);
+                console.log('Debug - Found page ID for confirmation:', requestBody.page_id);
+              }
             }
           }
         }
@@ -695,6 +712,16 @@ export default function ChatBot() {
       // Extract the section type from the URL
       const sectionType = link.url.replace('#add-', '');
 
+      // Convert section type to the format expected by the API
+      let apiSectionType = sectionType;
+
+      // Handle special cases for URL-based section types
+      if (sectionType === 'side-by-side') {
+        apiSectionType = 'side_by_side';
+      } else if (sectionType === 'card-group') {
+        apiSectionType = 'card_group';
+      }
+
       // Get the current page ID if we're on a landing page
       const pageElement = document.querySelector('[data-post-type="landing"]');
       let pageId = null;
@@ -736,7 +763,7 @@ export default function ChatBot() {
           id: generateUniqueId(),
           isCommand: true,
           commandType: 'add_section',
-          section_type: sectionType,
+          section_type: apiSectionType,
           needs_more_info: true,
           page_id: pageId ? parseInt(pageId, 10) : undefined,
         };
@@ -855,7 +882,17 @@ export default function ChatBot() {
 
                             // If this is an add_section command, include the section_type and page_id
                             if (message.commandType === 'add_section') {
-                              requestBody.section_type = message.section_type;
+                              // Ensure section_type is in the correct format
+                              let apiSectionType = message.section_type;
+
+                              // Handle special cases
+                              if (message.section_type === 'side-by-side') {
+                                apiSectionType = 'side_by_side';
+                              } else if (message.section_type === 'card-group') {
+                                apiSectionType = 'card_group';
+                              }
+
+                              requestBody.section_type = apiSectionType;
 
                               // Include the page_id from the message if it exists
                               if (message.page_id) {
@@ -1069,7 +1106,17 @@ export default function ChatBot() {
 
                             // If this is an add_section command, include the section_type and page_id
                             if (message.commandType === 'add_section') {
-                              requestBody.section_type = message.section_type;
+                              // Ensure section_type is in the correct format
+                              let apiSectionType = message.section_type;
+
+                              // Handle special cases
+                              if (message.section_type === 'side-by-side') {
+                                apiSectionType = 'side_by_side';
+                              } else if (message.section_type === 'card-group') {
+                                apiSectionType = 'card_group';
+                              }
+
+                              requestBody.section_type = apiSectionType;
 
                               // Include the page_id from the message if it exists
                               if (message.page_id) {
