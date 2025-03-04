@@ -109,18 +109,6 @@ function pressx_get_ai_section_system_prompt($section_type, $sanitized_topic) {
   $system_prompt .= "- Call-to-action buttons with text relevant to \"$sanitized_topic\".\n\n";
   $system_prompt .= "The first card should be labeled as \"Basic Plan\" and the second as \"Premium Plan\", but all content within them must be customized for \"$sanitized_topic\".\n\n";
   $system_prompt .= "IMPORTANT FOR PRICING SECTIONS: Each feature in the features array must be an object with a 'text' property, like this: { \"text\": \"Feature description related to $sanitized_topic\" }. Do not use simple strings for features.\n\n";
-
-  // If this is a pricing section, include a sample structure.
-  if ( $section_type === 'pricing' ) {
-    $pricing_section = pressx_get_pricing_section_structure();
-
-    if ( $pricing_section ) {
-      $system_prompt .= "Here's an example of a pricing section structure:\n\n";
-      $system_prompt .= json_encode( $pricing_section, JSON_PRETTY_PRINT );
-      $system_prompt .= "\n\n";
-    }
-  }
-
   $system_prompt .= "IMPORTANT FOR IMAGES: For sections that can include images (hero, side_by_side, gallery items, etc.), include an \"image_search\" field with a specific search phrase that would find a relevant image. For example, for a coffee shop, you might use \"barista pouring latte art\" or \"cozy coffee shop interior\".\n\n";
   $system_prompt .= "Your response MUST be only valid JSON with a single section object containing at minimum a '_type' field matching \"$section_type\". Each section type has specific fields based on its type:\n\n";
   $system_prompt .= "1. hero: Must include heading, summary, image_search, and can optionally include hero_layout, link_title, link_url, link2_title, link2_url.\n";
@@ -130,7 +118,7 @@ function pressx_get_ai_section_system_prompt($section_type, $sanitized_topic) {
   $system_prompt .= "5. gallery: Must include title, summary, media_items array (EXACTLY 4 items, each with title, summary, and image_search).\n";
   $system_prompt .= "6. quote: Must include quote, author, image_search.\n";
   $system_prompt .= "7. accordion: Must include title, summary, items array (each with title, body).\n";
-  $system_prompt .= "8. pricing: Must include eyebrow, title, summary, includes_label, and cards array (each with eyebrow, title, monthly_label, features array, cta_text, and cta_link).\n\n";
+  $system_prompt .= "8. pricing: Must include eyebrow, title, summary, includes_label, and cards array (each with eyebrow, title, features array, cta_text, and cta_link).\n\n";
   $system_prompt .= "Your response format should be valid JSON that looks EXACTLY like this (with your content):\n";
   $system_prompt .= "{\n";
   $system_prompt .= "  \"_type\": \"$section_type\",\n";

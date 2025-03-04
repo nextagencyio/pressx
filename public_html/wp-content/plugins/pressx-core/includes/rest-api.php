@@ -566,7 +566,7 @@ function pressx_get_pricing_section_structure() {
 
   if (!file_exists($create_pricing_path)) {
     error_log('PressX: create-pricing.php file not found at: ' . $create_pricing_path);
-    return pressx_get_default_pricing_structure();
+    return NULL;
   }
 
   // Get the file contents.
@@ -575,55 +575,11 @@ function pressx_get_pricing_section_structure() {
   // Check if the file contains a pricing section.
   if (strpos($file_contents, "'_type' => 'pricing'") === FALSE && strpos($file_contents, '"_type" => "pricing"') === FALSE) {
     error_log('PressX: No pricing section found in create-pricing.php');
-    return pressx_get_default_pricing_structure();
+    return NULL;
   }
 
   // Since we found a pricing section but can't safely extract it with regex,
-  // we'll just return the default structure for now.
+  // we'll just return NULL for now.
   // In a future update, we could improve this to properly extract the pricing section.
-  return pressx_get_default_pricing_structure();
-}
-
-/**
- * Returns the default pricing section structure.
- *
- * @return array
- *   The default pricing section structure.
- */
-function pressx_get_default_pricing_structure() {
-  return [
-    '_type' => 'pricing',
-    'eyebrow' => 'Tailored PressX Offerings',
-    'title' => 'Unlock the Full Potential of PressX',
-    'summary' => 'Tailor your PressX experience: choose between self-managed and full-service options',
-    'includes_label' => 'Includes',
-    'cards' => [
-      [
-        'eyebrow' => 'PressX CMS Platform',
-        'title' => 'Free',
-        'monthly_label' => '',
-        'features' => [
-          ['text' => 'Full access to open source features'],
-          ['text' => 'Community support'],
-          ['text' => 'Documentation'],
-          ['text' => 'AI development features']
-        ],
-        'cta_text' => 'Get Started',
-        'cta_link' => '#'
-      ],
-      [
-        'eyebrow' => 'Paid Services',
-        'title' => 'Contact Us',
-        'monthly_label' => '',
-        'features' => [
-          ['text' => 'Custom development'],
-          ['text' => 'Content migration'],
-          ['text' => 'Ongoing support'],
-          ['text' => 'Consulting services']
-        ],
-        'cta_text' => 'Contact Sales',
-        'cta_link' => '#'
-      ]
-    ]
-  ];
+  return NULL;
 }
