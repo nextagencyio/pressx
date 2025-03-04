@@ -174,15 +174,23 @@ function pressx_ai_request($prompt, $system_prompt = NULL, $is_cli = FALSE, $is_
 }
 
 /**
- * Sanitizes a prompt.
+ * Sanitizes a prompt for use with AI.
  *
- * @param string $prompt
+ * @param mixed $prompt
  *   The prompt to sanitize.
  *
  * @return string
  *   The sanitized prompt.
  */
 function pressx_sanitize_prompt($prompt) {
+  // If the prompt is an array, convert it to a string.
+  if (is_array($prompt)) {
+    $prompt = json_encode($prompt);
+  }
+
+  // Ensure we have a string.
+  $prompt = (string) $prompt;
+
   // Remove any HTML tags.
   $prompt = strip_tags($prompt);
 
@@ -192,8 +200,7 @@ function pressx_sanitize_prompt($prompt) {
   // Trim whitespace.
   $prompt = trim($prompt);
 
-  // Ensure we have a string.
-  return (string) $prompt;
+  return $prompt;
 }
 
 /**

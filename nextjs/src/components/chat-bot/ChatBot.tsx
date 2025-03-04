@@ -167,6 +167,11 @@ export default function ChatBot() {
             url: '#add-newsletter',
             command: 'add newsletter section',
           },
+          {
+            text: 'pricing',
+            url: '#add-pricing',
+            command: 'add pricing section',
+          },
         ],
       };
 

@@ -230,15 +230,36 @@ function pressx_chat_callback(WP_REST_Request $request) {
         'accordion',
         'quote',
         'text',
+        'pricing',
       ])) {
         // Include the AI section generator.
         require_once plugin_dir_path(dirname(__FILE__)) . 'includes/ai-section-generator.php';
 
-        // Generate the section using AI.
-        $ai_section = pressx_generate_ai_section($section_type, $command_prompt);
+        // For pricing sections, include a sample structure in the prompt.
+        if ($section_type === 'pricing') {
+          // Get the pricing section structure from create-pricing.php.
+          $pricing_section = pressx_get_pricing_section_structure();
+
+          if ($pricing_section) {
+            // Add the sample structure to the command prompt.
+            $enhanced_prompt = $command_prompt . "\n\nPlease follow this structure for the pricing section:\n" .
+                              json_encode($pricing_section, JSON_PRETTY_PRINT);
+
+            // Generate the section using AI with the enhanced prompt.
+            $ai_section = pressx_generate_ai_section($section_type, $enhanced_prompt);
+          }
+          else {
+            // Fallback to the original prompt if we couldn't find a pricing section.
+            $ai_section = pressx_generate_ai_section($section_type, $command_prompt);
+          }
+        }
+        else {
+          // Generate the section using AI with the original prompt.
+          $ai_section = pressx_generate_ai_section($section_type, $command_prompt);
+        }
 
         // If AI generation was successful, use the AI-generated section.
-        if (!empty($ai_section) && isset($ai_section['_type']) && $ai_section['_type'] === $section_type) {
+        if (!is_wp_error($ai_section) && !empty($ai_section) && isset($ai_section['_type']) && $ai_section['_type'] === $section_type) {
           $new_section = $ai_section;
         }
       }
@@ -249,11 +270,11 @@ function pressx_chat_callback(WP_REST_Request $request) {
           case 'hero':
             $new_section = [
               '_type' => 'hero',
-              'eyebrow' => 'Feature',
+              'eyebrow' => ucfirst($command_prompt) . ' Solutions',
               'hero_layout' => 'full_width',
-              'heading' => ucfirst($command_prompt),
-              'summary' => $command_prompt,
-              'link_title' => 'Learn More',
+              'heading' => 'Discover the Best ' . ucfirst($command_prompt) . ' Experience',
+              'summary' => 'We provide top-quality ' . $command_prompt . ' services tailored to your specific needs. Learn how our ' . $command_prompt . ' solutions can help you succeed.',
+              'link_title' => 'Explore ' . ucfirst($command_prompt),
               'link_url' => '#',
             ];
 
@@ -274,11 +295,11 @@ function pressx_chat_callback(WP_REST_Request $request) {
           case 'side_by_side':
             $new_section = [
               '_type' => 'side_by_side',
-              'eyebrow' => 'Feature',
+              'eyebrow' => 'Why Choose Our ' . ucfirst($command_prompt) . ' Services',
               'layout' => 'image_right',
-              'title' => ucfirst($command_prompt),
-              'summary' => $command_prompt,
-              'link_title' => 'Learn More',
+              'title' => 'Premium ' . ucfirst($command_prompt) . ' Solutions',
+              'summary' => 'Our ' . $command_prompt . ' services are designed to meet your specific needs. We focus on quality, reliability, and customer satisfaction to deliver the best ' . $command_prompt . ' experience.',
+              'link_title' => 'Learn More About ' . ucfirst($command_prompt),
               'link_url' => '#',
             ];
 
@@ -299,8 +320,9 @@ function pressx_chat_callback(WP_REST_Request $request) {
           case 'quote':
             $new_section = [
               '_type' => 'quote',
-              'quote' => $command_prompt,
-              'author' => 'Anonymous',
+              'quote' => '"The ' . $command_prompt . ' services provided exceeded our expectations. We highly recommend their ' . $command_prompt . ' solutions to anyone looking for quality and reliability."',
+              'author' => 'Satisfied ' . ucfirst($command_prompt) . ' Customer',
+              'job_title' => 'CEO, ' . ucfirst($command_prompt) . ' Industries',
             ];
 
             // Only add default image if no media is set.
@@ -320,8 +342,8 @@ function pressx_chat_callback(WP_REST_Request $request) {
           case 'text':
             $new_section = [
               '_type' => 'text',
-              'title' => ucfirst($command_prompt),
-              'body' => $command_prompt,
+              'title' => 'About Our ' . ucfirst($command_prompt) . ' Services',
+              'body' => '<p>We are dedicated to providing the highest quality ' . $command_prompt . ' services in the industry. Our team of experienced professionals is committed to delivering exceptional ' . $command_prompt . ' solutions tailored to your specific needs.</p><p>With years of experience in the ' . $command_prompt . ' field, we understand the challenges and opportunities that businesses face. Our approach combines innovation, reliability, and customer-focused service to ensure your ' . $command_prompt . ' goals are met and exceeded.</p>',
             ];
             break;
 
@@ -330,6 +352,40 @@ function pressx_chat_callback(WP_REST_Request $request) {
               '_type' => 'newsletter',
               'title' => 'Stay Updated',
               'summary' => $command_prompt,
+            ];
+            break;
+
+          case 'pricing':
+            $new_section = [
+              '_type' => 'pricing',
+              'eyebrow' => 'Pricing Options for ' . ucfirst($command_prompt),
+              'title' => ucfirst($command_prompt) . ' Pricing Plans',
+              'summary' => 'Choose the ' . $command_prompt . ' plan that works best for you.',
+              'includes_label' => 'Includes',
+              'cards' => [
+                [
+                  'eyebrow' => 'Basic ' . ucfirst($command_prompt) . ' Plan',
+                  'title' => 'Free',
+                  'features' => [
+                    ['text' => 'Core ' . $command_prompt . ' features'],
+                    ['text' => $command_prompt . ' community support'],
+                    ['text' => $command_prompt . ' documentation'],
+                  ],
+                  'cta_text' => 'Get Started with ' . ucfirst($command_prompt),
+                  'cta_link' => '#',
+                ],
+                [
+                  'eyebrow' => 'Premium ' . ucfirst($command_prompt) . ' Plan',
+                  'title' => 'Contact Us',
+                  'features' => [
+                    ['text' => 'All basic ' . $command_prompt . ' features'],
+                    ['text' => 'Priority ' . $command_prompt . ' support'],
+                    ['text' => 'Advanced ' . $command_prompt . ' options'],
+                  ],
+                  'cta_text' => 'Contact ' . ucfirst($command_prompt) . ' Sales',
+                  'cta_link' => '#',
+                ],
+              ],
             ];
             break;
 
@@ -496,4 +552,78 @@ function pressx_chat_callback(WP_REST_Request $request) {
       'response' => 'Sorry, I encountered an error. Please try again later.',
     ], 500);
   }
+}
+
+/**
+ * Gets the pricing section structure from create-pricing.php.
+ *
+ * @return array|null
+ *   The pricing section structure, or NULL if not found.
+ */
+function pressx_get_pricing_section_structure() {
+  // Include the create-pricing.php file.
+  $create_pricing_path = plugin_dir_path(dirname(__FILE__)) . 'includes/cli/commands/create-pricing.php';
+
+  if (!file_exists($create_pricing_path)) {
+    error_log('PressX: create-pricing.php file not found at: ' . $create_pricing_path);
+    return pressx_get_default_pricing_structure();
+  }
+
+  // Get the file contents.
+  $file_contents = file_get_contents($create_pricing_path);
+
+  // Check if the file contains a pricing section.
+  if (strpos($file_contents, "'_type' => 'pricing'") === FALSE && strpos($file_contents, '"_type" => "pricing"') === FALSE) {
+    error_log('PressX: No pricing section found in create-pricing.php');
+    return pressx_get_default_pricing_structure();
+  }
+
+  // Since we found a pricing section but can't safely extract it with regex,
+  // we'll just return the default structure for now.
+  // In a future update, we could improve this to properly extract the pricing section.
+  return pressx_get_default_pricing_structure();
+}
+
+/**
+ * Returns the default pricing section structure.
+ *
+ * @return array
+ *   The default pricing section structure.
+ */
+function pressx_get_default_pricing_structure() {
+  return [
+    '_type' => 'pricing',
+    'eyebrow' => 'Tailored PressX Offerings',
+    'title' => 'Unlock the Full Potential of PressX',
+    'summary' => 'Tailor your PressX experience: choose between self-managed and full-service options',
+    'includes_label' => 'Includes',
+    'cards' => [
+      [
+        'eyebrow' => 'PressX CMS Platform',
+        'title' => 'Free',
+        'monthly_label' => '',
+        'features' => [
+          ['text' => 'Full access to open source features'],
+          ['text' => 'Community support'],
+          ['text' => 'Documentation'],
+          ['text' => 'AI development features']
+        ],
+        'cta_text' => 'Get Started',
+        'cta_link' => '#'
+      ],
+      [
+        'eyebrow' => 'Paid Services',
+        'title' => 'Contact Us',
+        'monthly_label' => '',
+        'features' => [
+          ['text' => 'Custom development'],
+          ['text' => 'Content migration'],
+          ['text' => 'Ongoing support'],
+          ['text' => 'Consulting services']
+        ],
+        'cta_text' => 'Contact Sales',
+        'cta_link' => '#'
+      ]
+    ]
+  ];
 }

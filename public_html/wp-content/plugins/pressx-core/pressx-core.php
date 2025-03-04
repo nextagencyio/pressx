@@ -720,7 +720,14 @@ add_action('graphql_register_types', function () {
                   'title' => $card['title'] ?? '',
                   'monthlyLabel' => $card['monthly_label'] ?? '',
                   'features' => !empty($card['features']) ? array_map(function ($feature) {
-                    return $feature['text'] ?? '';
+                    // Handle both string features and object features with a 'text' property.
+                    if (is_array($feature) && isset($feature['text'])) {
+                      return $feature['text'];
+                    }
+                    elseif (is_string($feature)) {
+                      return $feature;
+                    }
+                    return '';
                   }, $card['features']) : [],
                   'ctaText' => $card['cta_text'] ?? '',
                   'ctaLink' => $card['cta_link'] ?? '',
