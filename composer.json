@@ -2,6 +2,9 @@
   "name": "pressx/starter-kit",
   "description": "PressX - A headless WordPress setup",
   "type": "project",
+  "version": "1.0.0-dev",
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "license": [
     "GPL-2.0-or-later",
     "MIT"
