@@ -16,11 +16,13 @@ if (!defined('ABSPATH')) {
  *   The prompt for the AI to generate content.
  * @param bool $is_cli
  *   Whether this is being called from CLI.
+ * @param bool $auto_enhance
+ *   Whether to automatically enhance the prompt if needed.
  *
  * @return array|bool
  *   Array with post_id and permalink if successful, FALSE otherwise.
  */
-function pressx_create_ai_landing($prompt = '', $is_cli = TRUE) {
+function pressx_create_ai_landing($prompt = '', $is_cli = TRUE, $auto_enhance = TRUE) {
   if (empty($prompt)) {
     if (!$is_cli) {
       return FALSE;
@@ -30,6 +32,19 @@ function pressx_create_ai_landing($prompt = '', $is_cli = TRUE) {
         WP_CLI::error('Please provide a prompt.');
       }
       return FALSE;
+    }
+  }
+
+  // If auto enhance is enabled, and the prompt is very short or generic,
+  // try to make it more specific for better results
+  if ($auto_enhance && strlen($prompt) < 20) {
+    // The prompt is quite short - attempt to enhance it
+    $words = str_word_count($prompt);
+    if ($words < 5) {
+      // Try to expand very short prompts with common keywords
+      $expanded_prompt = $prompt . " landing page with features and benefits";
+      pressx_landing_log("Auto-enhancing prompt: '$prompt' → '$expanded_prompt'");
+      $prompt = $expanded_prompt;
     }
   }
 

@@ -93,7 +93,7 @@ export default function ChatBot() {
     if (isOpen && messages.length === 0) {
       setMessages([
         {
-          content: "👋 Hi! I'm the PressX Assistant. I am here to help you create content for your PressX website. You can ask me questions or try commands like 'create a landing page for [topic]'.",
+          content: "👋 Hi! I'm the PressX Assistant. I'm here to help you create a landing page for your PressX website. Just tell me what your page is about, and I'll build it for you.",
           role: 'assistant',
           timestamp: Date.now()
         }
@@ -464,14 +464,14 @@ export default function ChatBot() {
           aria-label="Open chat"
         >
           <Bot className="w-5 h-5" />
-          <span>PressX ChatBot</span>
+          <span>AI Page Creator</span>
         </button>
       ) : (
         <div className="w-[450px] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col min-h-[400px] max-h-[600px] border border-gray-200">
           <div className="bg-gray-100 p-4 flex justify-between items-center border-b border-gray-200">
             <div className="flex items-center gap-2">
               <Bot className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-semibold text-gray-800">PressX ChatBot</h3>
+              <h3 className="text-lg font-semibold text-gray-800">AI Page Creator</h3>
             </div>
             <button
               onClick={() => setIsOpen(false)}
@@ -922,7 +922,7 @@ export default function ChatBot() {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message or try 'create a landing page for...'"
+                placeholder="What your landing page is about?"
                 className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-gray-800 bg-white placeholder-gray-400"
                 disabled={isLoading || authError}
                 ref={inputRef}
