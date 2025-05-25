@@ -22,7 +22,7 @@ export const Default: Story = {
     includesLabel: "Includes",
     cards: [
       {
-        eyebrow: "DrupalX CMS",
+        eyebrow: "PressX CMS",
         title: "Free",
         monthlyLabel: "",
         features: ["Full access to open source features", "Community support", "Documentation"],

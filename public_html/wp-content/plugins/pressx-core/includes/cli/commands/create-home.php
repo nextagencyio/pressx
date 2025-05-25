@@ -132,7 +132,7 @@ function pressx_create_home($force = FALSE) {
         ],
         [
           'type' => 'stat',
-          'heading' => 'Experience seamless integration and flexibility with our Decoupled Architecture.',
+          'heading' => 'Experience seamless integration and flexibility with our Decoupled Architecture',
           'body' => 'Leverage the power of React and Node.js to dramatically improve your website\'s efficiency and speed.',
           'icon' => 'git-branch',
         ],

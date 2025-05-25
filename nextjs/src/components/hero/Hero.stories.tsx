@@ -58,7 +58,7 @@ export const ImageBottomSplit: Story = {
   args: {
     ...Default.args,
     heroLayout: 'image_bottom_split',
-    heading: 'Empower Your Content with DrupalX Today',
-    summary: 'Discover the power of a decoupled CMS that adapts to your needs. With DrupalX, you can create, manage, and scale your content effortlessly.',
+    heading: 'Empower Your Content with PressX Today',
+    summary: 'Discover the power of a decoupled CMS that adapts to your needs. With PressX, you can create, manage, and scale your content effortlessly.',
   }
 };
