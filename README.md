@@ -1,5 +1,17 @@
 # PressX - Headless WordPress Setup
 
+> [!WARNING]
+> **This repository is deprecated.**
+>
+> The headless WordPress + Next.js PressX stack is no longer maintained.
+> Use the current PressX product instead:
+>
+> - WordPress (Timber / Bedrock): [`nextagencyio/pressx-wp`](https://github.com/nextagencyio/pressx-wp)
+> - Twing frontend workbench: [`nextagencyio/pressx-frontend`](https://github.com/nextagencyio/pressx-frontend)
+>
+> Do not start new engagements from this repo.
+
+
 PressX is a modern headless WordPress setup that combines the power of WordPress as a backend CMS with Next.js for the frontend, all containerized using DDEV for consistent development environments.
 
 ## 🚀 Quick Start
